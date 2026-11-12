@@ -612,8 +612,17 @@ drm_public int amdgpu_create_bo_from_user_mem(amdgpu_device_handle dev,
 	struct drm_amdgpu_gem_userptr args;
 
 	args.addr = (uintptr_t)cpu;
+#ifdef __HAIKU__
+	/* Haiku's amdgpu_drm wires the pages of whatever backs the range,
+	 * anonymous memory or a shared file mapping, until the buffer is freed
+	 * or the team ends. A Wayland client's wl_shm buffers are the latter
+	 * (a temporary file, there being no memfd), and Mesa's WSI has the GPU
+	 * copy frames straight into them. */
+	args.flags = AMDGPU_GEM_USERPTR_REGISTER | AMDGPU_GEM_USERPTR_VALIDATE;
+#else
 	args.flags = AMDGPU_GEM_USERPTR_ANONONLY | AMDGPU_GEM_USERPTR_REGISTER |
 		AMDGPU_GEM_USERPTR_VALIDATE;
+#endif
 	args.size = size;
 	r = drmCommandWriteRead(dev->fd, DRM_AMDGPU_GEM_USERPTR,
 				&args, sizeof(args));
