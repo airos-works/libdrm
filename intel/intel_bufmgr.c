@@ -32,7 +32,7 @@
 #include <errno.h>
 #include <drm.h>
 #include <i915_drm.h>
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__HAIKU__)
 #include <pciaccess.h>
 #endif
 #include "libdrm_macros.h"
@@ -324,7 +324,7 @@ drm_intel_get_pipe_from_crtc_id(drm_intel_bufmgr *bufmgr, int crtc_id)
 	return -1;
 }
 
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__HAIKU__)
 static size_t
 drm_intel_probe_agp_aperture_size(int fd)
 {
@@ -349,6 +349,15 @@ drm_intel_probe_agp_aperture_size(int fd)
 err:
 	pci_system_cleanup ();
 	return size;
+}
+#elif defined(__HAIKU__)
+static size_t
+drm_intel_probe_agp_aperture_size(int fd)
+{
+	/* No libpciaccess on Haiku to read the GPU's BAR 2 with. Gen 9 and later
+	 * GPUs (i915_drm's) have 256 MiB as a rule, and nothing that runs there
+	 * (intel-vaapi-driver) asks. */
+	return 256 * 1024 * 1024;
 }
 #else
 static size_t

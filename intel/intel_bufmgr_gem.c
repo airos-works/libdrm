@@ -72,6 +72,37 @@
 
 #define memclear(s) memset(&s, 0, sizeof(s))
 
+/* A CPU mapping of a buffer object: Linux makes it in the kernel
+ * (DRM_IOCTL_I915_GEM_MMAP returns the address). i915_drm on Haiku does not
+ * have that ioctl: there the object's DRM_IOCTL_I915_GEM_MMAP_OFFSET fake
+ * offset (write-back, or write-combined for I915_MMAP_WC) is mapped as
+ * Linux's mmap() of the DRM file would map it (drm_mmap():
+ * DRM_HAIKU_IOCTL_MAP), and drm_munmap() undoes it as it undoes the GTT
+ * mappings. Fails as drmIoctl() does: -1 and errno. */
+static int
+drm_intel_gem_mmap(int fd, struct drm_i915_gem_mmap *mmap_arg)
+{
+#ifdef __HAIKU__
+	struct drm_i915_gem_mmap_offset offset_arg;
+	void *map;
+
+	memclear(offset_arg);
+	offset_arg.handle = mmap_arg->handle;
+	offset_arg.flags = (mmap_arg->flags & I915_MMAP_WC)
+		? I915_MMAP_OFFSET_WC : I915_MMAP_OFFSET_WB;
+	if (drmIoctl(fd, DRM_IOCTL_I915_GEM_MMAP_OFFSET, &offset_arg))
+		return -1;
+	map = drm_mmap(0, mmap_arg->size, PROT_READ | PROT_WRITE, MAP_SHARED,
+		       fd, offset_arg.offset);
+	if (map == MAP_FAILED)
+		return -1;
+	mmap_arg->addr_ptr = (uintptr_t)map;
+	return 0;
+#else
+	return drmIoctl(fd, DRM_IOCTL_I915_GEM_MMAP, mmap_arg);
+#endif
+}
+
 #define DBG(...) do {					\
 	if (bufmgr_gem->bufmgr.debug)			\
 		fprintf(stderr, __VA_ARGS__);		\
@@ -1428,8 +1459,7 @@ static int drm_intel_gem_bo_map(drm_intel_bo *bo, int write_enable)
 		memclear(mmap_arg);
 		mmap_arg.handle = bo_gem->gem_handle;
 		mmap_arg.size = bo->size;
-		ret = drmIoctl(bufmgr_gem->fd,
-			       DRM_IOCTL_I915_GEM_MMAP,
+		ret = drm_intel_gem_mmap(bufmgr_gem->fd,
 			       &mmap_arg);
 		if (ret != 0) {
 			ret = -errno;
@@ -3465,8 +3495,7 @@ drm_public void *drm_intel_gem_bo_map__cpu(drm_intel_bo *bo)
 		memclear(mmap_arg);
 		mmap_arg.handle = bo_gem->gem_handle;
 		mmap_arg.size = bo->size;
-		if (drmIoctl(bufmgr_gem->fd,
-			     DRM_IOCTL_I915_GEM_MMAP,
+		if (drm_intel_gem_mmap(bufmgr_gem->fd,
 			     &mmap_arg)) {
 			DBG("%s:%d: Error mapping buffer %d (%s): %s .\n",
 			    __FILE__, __LINE__, bo_gem->gem_handle,
@@ -3508,8 +3537,7 @@ drm_public void *drm_intel_gem_bo_map__wc(drm_intel_bo *bo)
 		mmap_arg.handle = bo_gem->gem_handle;
 		mmap_arg.size = bo->size;
 		mmap_arg.flags = I915_MMAP_WC;
-		if (drmIoctl(bufmgr_gem->fd,
-			     DRM_IOCTL_I915_GEM_MMAP,
+		if (drm_intel_gem_mmap(bufmgr_gem->fd,
 			     &mmap_arg)) {
 			DBG("%s:%d: Error mapping buffer %d (%s): %s .\n",
 			    __FILE__, __LINE__, bo_gem->gem_handle,

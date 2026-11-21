@@ -56,45 +56,49 @@ pkg.generate(
   description : 'Userspace interface to intel kernel DRM services',
 )
 
-test_decode = executable(
-  'test_decode',
-  files('test_decode.c'),
-  include_directories : [inc_root, inc_drm],
-  link_with : [libdrm, libdrm_intel],
-  c_args : libdrm_c_args,
-  gnu_symbol_visibility : 'hidden',
-)
+# (a test tool that needs BSD's errx(), which Haiku has in libbsd: only with
+# the tests)
+if get_option('tests')
+  test_decode = executable(
+    'test_decode',
+    files('test_decode.c'),
+    include_directories : [inc_root, inc_drm],
+    link_with : [libdrm, libdrm_intel],
+    c_args : libdrm_c_args,
+    gnu_symbol_visibility : 'hidden',
+  )
 
-test(
-  'gen4-3d.batch',
-  find_program('tests/gen4-3d.batch.sh'),
-  workdir : meson.current_build_dir(),
-)
-test(
-  'gen45-3d.batch',
-  find_program('tests/gm45-3d.batch.sh'),
-  workdir : meson.current_build_dir(),
-)
-test(
-  'gen5-3d.batch',
-  find_program('tests/gen5-3d.batch.sh'),
-  workdir : meson.current_build_dir(),
-)
-test(
-  'gen6-3d.batch',
-  find_program('tests/gen6-3d.batch.sh'),
-  workdir : meson.current_build_dir(),
-)
-test(
-  'gen7-3d.batch',
-  find_program('tests/gen7-3d.batch.sh'),
-  workdir : meson.current_build_dir(),
-)
-test(
-  'gen7-2d-copy.batch',
-  find_program('tests/gen7-2d-copy.batch.sh'),
-  workdir : meson.current_build_dir(),
-)
+  test(
+    'gen4-3d.batch',
+    find_program('tests/gen4-3d.batch.sh'),
+    workdir : meson.current_build_dir(),
+  )
+  test(
+    'gen45-3d.batch',
+    find_program('tests/gm45-3d.batch.sh'),
+    workdir : meson.current_build_dir(),
+  )
+  test(
+    'gen5-3d.batch',
+    find_program('tests/gen5-3d.batch.sh'),
+    workdir : meson.current_build_dir(),
+  )
+  test(
+    'gen6-3d.batch',
+    find_program('tests/gen6-3d.batch.sh'),
+    workdir : meson.current_build_dir(),
+  )
+  test(
+    'gen7-3d.batch',
+    find_program('tests/gen7-3d.batch.sh'),
+    workdir : meson.current_build_dir(),
+  )
+  test(
+    'gen7-2d-copy.batch',
+    find_program('tests/gen7-2d-copy.batch.sh'),
+    workdir : meson.current_build_dir(),
+  )
+endif
 
 test(
   'intel-symbols-check',
